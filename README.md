@@ -255,5 +255,4 @@ dela:
 
 ## Licença
 
-MIT — ver [LICENSE](LICENSE). Pode usar comercialmente, entregar a clientes,
-cobrar por isso e fechar o código das aplicações que escrever por cima.
+MIT — ver [LICENSE](LICENSE).
