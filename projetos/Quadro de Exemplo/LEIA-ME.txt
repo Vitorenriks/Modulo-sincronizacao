@@ -1,0 +1,69 @@
+Quadro de Exemplo
+================================================================
+
+O que é isto
+----------------------------------------------------------------
+Uma ferramenta interna de sua equipe. Ela abre no navegador,
+mas não é um site: tudo funciona dentro desta pasta, na sua
+própria máquina. Não tem login, não tem mensalidade, não tem
+servidor na internet.
+
+
+Como usar (leva 5 segundos)
+----------------------------------------------------------------
+1. Dê DOIS CLIQUES em "Quadro de Exemplo.exe", aqui nesta pasta.
+2. O navegador abre sozinho. Use normalmente.
+3. Quando terminar, feche o navegador.
+
+O programa continua rodando discretamente ao lado do relógio,
+no canto da barra de tarefas. Para desligar de vez, clique no
+ícone dele com o botão direito e escolha "Sair".
+
+
+O que o colega faz aparece para mim?
+----------------------------------------------------------------
+Sim. Todo mundo que abre o programa nesta mesma pasta vê o mesmo
+conteúdo, e as alterações aparecem em poucos segundos — o tempo
+de o OneDrive (ou a rede) sincronizar os arquivos.
+
+Duas pessoas podem mexer ao mesmo tempo. Cada máquina grava no
+próprio arquivo dentro de "dados", e a tela mostra a soma de
+todos. Ninguém apaga o trabalho de ninguém.
+
+
+Perguntas que sempre aparecem
+----------------------------------------------------------------
+"Preciso instalar alguma coisa?"
+   Não. Nem instalar, nem ser administrador da máquina.
+
+"Funciona sem internet?"
+   O programa sim, na hora. O que você fizer offline aparece para
+   os outros quando a pasta voltar a sincronizar.
+
+"Apareceu 'somente leitura'."
+   A pasta foi compartilhada com você no modo "Pode exibir". Você
+   acompanha tudo, mas não altera. Peça permissão de edição a
+   quem compartilhou a pasta.
+
+"O antivírus reclamou / o Windows perguntou se confia."
+   É um programa pequeno que não tem assinatura digital de
+   fabricante. Clique em "Mais informações" > "Executar assim
+   mesmo". Se preferir, confirme com quem entregou a pasta.
+
+"Pediu liberação no firewall."
+   Não deveria pedir: o programa só escuta em 127.0.0.1, que é a
+   sua própria máquina. Se algum aviso aparecer, pode CANCELAR
+   sem medo — não é preciso liberar nada na rede.
+
+"Apaguei sem querer / quero voltar como estava ontem."
+   Nada é apagado de verdade: a pasta guarda o histórico de tudo
+   que foi feito. Fale com quem cuida da ferramenta.
+
+
+Cuidados
+----------------------------------------------------------------
+- Não renomeie nem apague as pastas "_app" e "dados".
+- Não mova o programa para fora desta pasta: ele precisa estar
+  junto delas para funcionar.
+- Para levar a ferramenta para outro lugar, copie a PASTA
+  INTEIRA — não só o programa.

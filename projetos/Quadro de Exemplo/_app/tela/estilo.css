@@ -1,0 +1,177 @@
+/*
+   tela/estilo.css - aparencia neutra, de proposito.
+
+   Nenhuma cor de empresa esta escrita aqui. Quem personaliza troca as
+   variaveis do :root abaixo e o marca.ico - as duas coisas que mudam de
+   cliente para cliente - sem precisar entender o resto do arquivo.
+
+   O tema escuro segue o do Windows. Nao ha botaozinho de sol/lua: a pessoa
+   ja escolheu isso no sistema, e um segundo interruptor so cria a chance de
+   os dois discordarem.
+*/
+
+:root {
+  --cor-marca:   #3f5f7a;
+  --fundo:       #f4f5f7;
+  --papel:       #ffffff;
+  --texto:       #1d2329;
+  --fraco:       #6b7580;
+  --borda:       #e0e3e7;
+  --aviso-fundo: #fdf6e3;
+  --aviso-borda: #e8d9a8;
+  --erro-fundo:  #fdeceb;
+  --erro-borda:  #f0c0bc;
+  --raio: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cor-marca:   #7da8cc;
+    --fundo:       #16191d;
+    --papel:       #1e2227;
+    --texto:       #e6e9ec;
+    --fraco:       #939ca6;
+    --borda:       #2c3238;
+    --aviso-fundo: #2a2617;
+    --aviso-borda: #4a422a;
+    --erro-fundo:  #2c1a19;
+    --erro-borda:  #5a3330;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 20px 20px;
+  background: var(--fundo);
+  color: var(--texto);
+  font: 14px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+.fraco { color: var(--fraco); }
+code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.92em; }
+
+/* topo */
+
+.topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 0 12px;
+  border-bottom: 1px solid var(--borda);
+  margin-bottom: 16px;
+}
+
+.marca { display: flex; align-items: center; gap: 12px; }
+.marca img { width: 36px; height: 36px; border-radius: 6px; }
+.marca h1 { margin: 0; font-size: 18px; font-weight: 600; }
+.marca p  { margin: 0; font-size: 12px; }
+
+.estado { display: flex; align-items: center; gap: 12px; font-size: 12px; }
+
+.etiqueta {
+  background: var(--cor-marca);
+  color: #fff;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.etiqueta-leitura { background: var(--fraco); }
+
+/* aviso */
+
+.aviso {
+  background: var(--aviso-fundo);
+  border: 1px solid var(--aviso-borda);
+  border-radius: var(--raio);
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+.aviso-erro { background: var(--erro-fundo); border-color: var(--erro-borda); }
+
+/* quadro */
+
+.quadro {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.coluna {
+  background: var(--papel);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 12px;
+}
+
+.coluna h2 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fraco);
+  display: flex;
+  justify-content: space-between;
+}
+.conta { font-weight: 400; }
+
+.cartao {
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 8px;
+}
+.cartao p { margin: 0 0 8px; white-space: pre-wrap; word-break: break-word; cursor: text; }
+
+.pe { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 11px; }
+.acoes { display: flex; gap: 4px; flex-wrap: wrap; }
+
+.acoes button {
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  background: var(--papel);
+  color: var(--fraco);
+  cursor: pointer;
+}
+.acoes button:hover { color: var(--texto); border-color: var(--fraco); }
+.acoes .apagar:hover { color: #c0392b; border-color: #c0392b; }
+
+.novo input {
+  width: 100%;
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px dashed var(--borda);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--texto);
+}
+.novo input:focus {
+  outline: none;
+  border-style: solid;
+  border-color: var(--cor-marca);
+  background: var(--papel);
+}
+
+/* rodape */
+
+.rodape {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--borda);
+  font-size: 12px;
+}

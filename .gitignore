@@ -1,0 +1,13 @@
+# Saída de compilação
+saida/
+
+# Projetos gerados. Cada um é uma entrega, com dados reais de cliente dentro —
+# nunca deve entrar no repositório do produto. A exceção é o exemplo, que serve
+# de demonstração pronta para dois cliques.
+projetos/*
+!projetos/Quadro de Exemplo/
+projetos/Quadro de Exemplo/dados/*.jsonl
+
+# Windows
+Thumbs.db
+desktop.ini

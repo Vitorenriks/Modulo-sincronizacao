@@ -1,0 +1,8 @@
+{
+  "nome": "Quadro de Exemplo",
+  "organizacao": "",
+  "icone": "marca.ico",
+  "prefixo": "quadro-de-exemplo",
+  "porta": 8850,
+  "faixaPortas": 40
+}

@@ -1,0 +1,663 @@
+/* ============================================================================
+   PainelTech.cs — o executável que fica DENTRO da pasta compartilhada.
+
+   É o mesmo servidor do Fluxo e da Teia compartilhados, adaptado. As
+   diferenças são o nome dos arquivos de log (painel.*.jsonl), o nome do
+   programa e a faixa de portas — para que os três possam rodar ao mesmo
+   tempo na mesma máquina sem disputar nada.
+
+   Cada pessoa dá duplo clique no "Painel Tech.exe" da própria máquina. Ele:
+
+     1. acha uma porta livre em 127.0.0.1 (só local, nunca na rede);
+     2. serve o painel a partir de _app/;
+     3. lê TODOS os dados/painel.*.jsonl e devolve como um log só;
+     4. anexa as operações novas APENAS no arquivo desta pessoa;
+     5. fica na bandeja, ao lado do relógio, até alguém mandar sair.
+
+   POR QUE UM ARQUIVO POR PESSOA (dados/painel.<usuario>@<maquina>.jsonl):
+   duas máquinas gravando o MESMO arquivo é o que faz o OneDrive criar
+   "cópia em conflito" e alguém perder trabalho sem perceber. Aqui cada
+   máquina só escreve no arquivo dela, e a tela mostra a soma de todos.
+
+   SÓ-LEITURA SAI DE GRAÇA: se a pasta foi compartilhada como "Pode exibir",
+   o Windows recusa a escrita, o POST /api/ops volta em erro e o painel
+   entra em modo de leitura sozinho. Quem nega é a permissão da pasta, não
+   uma variável no JavaScript.
+
+   ESTE ARQUIVO NÃO SABE O QUE É UM PAINEL. Ele não interpreta os dados:
+   anexa linha, devolve as linhas, e diz se algo mudou. Toda a regra de
+   negócio está no navegador — é o que permite trocar o painel inteiro sem
+   recompilar nada aqui.
+
+   Para compilar, ver COMPILAR.txt nesta mesma pasta.
+   ========================================================================= */
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Drawing;
+using System.Reflection;
+using System.Globalization;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading;
+using System.Windows.Forms;
+
+class PainelTech
+{
+    // Prefixo dos arquivos de log. Trocar aqui troca em todo lugar —
+    // inclusive no recorte do nome do autor, que usa PREFIXO.Length.
+    const string PREFIXO = "painel.";
+
+    static string PastaExe;
+    static string PastaApp;
+    static string PastaDados;
+    static string MeuArquivo;
+    static string Usuario;
+    static int Porta;
+    static int Seq;
+    static readonly object Trava = new object();
+    static volatile bool Rodando = true;
+    static NotifyIcon Bandeja;
+
+    // Escrita de página inteira só acontece na resposta; o corpo é sempre UTF-8
+    // sem BOM, porque BOM no meio de um JSONL quebra o JSON.parse do navegador.
+    static readonly Encoding Utf8 = new UTF8Encoding(false);
+
+    static Mutex Sozinho;
+
+    [STAThread]
+    static void Main(string[] args)
+    {
+        try
+        {
+            PastaExe = Path.GetDirectoryName(Application.ExecutablePath);
+            PastaApp = Path.Combine(PastaExe, "_app");
+            PastaDados = Path.Combine(PastaExe, "dados");
+
+            if (!Directory.Exists(PastaApp))
+            {
+                MessageBox.Show(
+                    "Não encontrei a pasta _app ao lado do Painel Tech.exe.\n\n" +
+                    "O executável precisa ficar DENTRO da pasta compartilhada, junto de _app e dados.\n\n" +
+                    "Procurei em:\n" + PastaApp,
+                    "Painel do Tech — PLAORC", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            Directory.CreateDirectory(PastaDados);
+
+            /* ------------------------------------------------------------
+               UMA instância por pasta, por máquina.
+
+               Dois processos abertos ao mesmo tempo gravariam no MESMO
+               arquivo com dois contadores de sequência independentes: as
+               duas alterações sairiam com o mesmo número, e a mesclagem
+               descartaria uma delas achando que era linha repetida. Perda
+               de dado, sem erro na tela.
+
+               Além de proteger, é o comportamento que a pessoa espera: dar
+               duplo clique de novo reabre o dashboard, não abre um segundo
+               programa.
+               ---------------------------------------------------------- */
+            // --sem-navegador serve para conferir o executável por script (é o
+            // que test.exe.ps1 faz) sem abrir uma janela na cara de ninguém.
+            bool abrirNavegador = true;
+            for (int i = 0; i < args.Length; i++)
+                if (args[i] == "--sem-navegador") abrirNavegador = false;
+
+            string chave = Assinatura(PastaExe);
+            bool primeiro;
+            Sozinho = new Mutex(true, "Local\\PainelTechPlaorc-" + chave, out primeiro);
+            if (!primeiro)
+            {
+                ReabrirExistente(chave, abrirNavegador);
+                return;
+            }
+
+            Usuario = Limpar(Environment.UserName);
+            string maquina = Limpar(Environment.MachineName);
+            MeuArquivo = Path.Combine(PastaDados, PREFIXO + Usuario + "@" + maquina + ".jsonl");
+            Seq = ContarLinhas(MeuArquivo);
+
+            Porta = AcharPorta(8850);
+            if (Porta == 0)
+            {
+                MessageBox.Show("Não consegui abrir nenhuma porta local entre 8850 e 8890.",
+                    "Painel do Tech — PLAORC", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            Thread servidor = new Thread(Servir);
+            servidor.IsBackground = true;
+            servidor.Start();
+
+            // A porta escolhida fica anotada no temp DA MÁQUINA, não na pasta
+            // compartilhada: é informação local, e nada que só interessa a um
+            // computador deve ficar sincronizando para os outros dois.
+            // Dois arquivos: um por pasta (é o que o segundo duplo clique lê
+            // para reabrir a janela certa) e um genérico, para scripts.
+            try
+            {
+                File.WriteAllText(Path.Combine(Path.GetTempPath(), "painel-porta-" + chave + ".txt"), Porta.ToString());
+                File.WriteAllText(Path.Combine(Path.GetTempPath(), "painel-porta.txt"), Porta.ToString());
+            }
+            catch (Exception) { }
+
+            if (abrirNavegador) Abrir();
+            MontarBandeja();
+            Application.Run();
+        }
+        catch (Exception e)
+        {
+            MessageBox.Show("Falha ao iniciar:\n\n" + e.Message,
+                "Painel do Tech — PLAORC", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            Rodando = false;
+            if (Bandeja != null) Bandeja.Visible = false;
+        }
+    }
+
+    /* ---------------------------------------------------------------------
+       Bandeja: o executável não tem janela própria de propósito — a janela é
+       o navegador. Sem o ícone, não haveria como fechar o servidor.
+       ------------------------------------------------------------------ */
+    static void MontarBandeja()
+    {
+        ContextMenu menu = new ContextMenu();
+        menu.MenuItems.Add(new MenuItem("Abrir o dashboard", delegate { Abrir(); }));
+        menu.MenuItems.Add(new MenuItem("Abrir a pasta de dados", delegate
+        {
+            try { Process.Start("explorer.exe", "\"" + PastaDados + "\""); } catch { }
+        }));
+        menu.MenuItems.Add("-");
+        menu.MenuItems.Add(new MenuItem("Sair", delegate
+        {
+            Rodando = false;
+            Bandeja.Visible = false;
+            Application.Exit();
+        }));
+
+        Bandeja = new NotifyIcon();
+        Bandeja.Icon = IconeDaMarca(SystemInformation.SmallIconSize);
+        Bandeja.Text = "Painel do Tech (porta " + Porta + ")";
+        Bandeja.ContextMenu = menu;
+        Bandeja.Visible = true;
+        Bandeja.DoubleClick += delegate { Abrir(); };
+        Bandeja.ShowBalloonTip(4000, "Painel do Tech — PLAORC",
+            "Aberto no navegador. Para fechar, clique aqui com o botão direito e escolha Sair.",
+            ToolTipIcon.Info);
+    }
+
+    // Assinatura estável da pasta: dá o mesmo resultado toda vez, na mesma
+    // máquina, para a mesma pasta — e resultado diferente para pastas
+    // diferentes, para que duas pastas distintas não briguem pelo mesmo mutex.
+    static string Assinatura(string caminho)
+    {
+        string s = caminho.ToLowerInvariant();
+        ulong h = 1469598103934665603UL;
+        foreach (char c in s) { h ^= c; h *= 1099511628211UL; }
+        return h.ToString("x16");
+    }
+
+    // Segundo duplo clique: em vez de abrir outro programa, reabre a janela do
+    // que já está rodando. Se a porta anotada não responder (o programa morreu
+    // sem apagar o arquivo), não force: só avise, para ninguém ficar clicando.
+    static void ReabrirExistente(string chave, bool abrirNavegador)
+    {
+        string arquivo = Path.Combine(Path.GetTempPath(), "painel-porta-" + chave + ".txt");
+        int porta = 0;
+        try { if (File.Exists(arquivo)) int.TryParse(File.ReadAllText(arquivo).Trim(), out porta); }
+        catch (Exception) { }
+
+        if (porta > 0 && Responde(porta))
+        {
+            if (!abrirNavegador) return;
+            try { Process.Start("http://127.0.0.1:" + porta + "/"); return; } catch (Exception) { }
+        }
+        if (!abrirNavegador) return;
+
+        MessageBox.Show(
+            "O Painel já está aberto nesta máquina, mas não consegui trazer a janela de volta.\n\n" +
+            "Procure o ícone perto do relógio, clique com o botão direito e escolha " +
+            "\"Abrir o dashboard\". Se ele não estiver lá, escolha \"Sair\" e abra de novo.",
+            "Painel do Tech — PLAORC", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    static bool Responde(int porta)
+    {
+        try
+        {
+            using (TcpClient c = new TcpClient())
+            {
+                IAsyncResult r = c.BeginConnect(IPAddress.Loopback, porta, null, null);
+                if (!r.AsyncWaitHandle.WaitOne(600)) return false;
+                c.EndConnect(r);
+                return true;
+            }
+        }
+        catch (Exception) { return false; }
+    }
+
+    static void Abrir()
+    {
+        try { Process.Start("http://127.0.0.1:" + Porta + "/"); }
+        catch (Exception e)
+        {
+            MessageBox.Show("Abra no navegador:  http://127.0.0.1:" + Porta + "/\n\n(" + e.Message + ")",
+                "Painel do Tech — PLAORC");
+        }
+    }
+
+    /* ---------------------------------------------------------------------
+       Servidor. Só escuta em 127.0.0.1 — não aceita conexão de fora da
+       máquina, e por isso não dispara pedido de liberação no firewall.
+       ------------------------------------------------------------------ */
+    static int AcharPorta(int inicio)
+    {
+        for (int p = inicio; p < inicio + 40; p++)
+        {
+            try
+            {
+                TcpListener teste = new TcpListener(IPAddress.Loopback, p);
+                teste.Start();
+                teste.Stop();
+                return p;
+            }
+            catch (SocketException) { }
+        }
+        return 0;
+    }
+
+    static void Servir()
+    {
+        TcpListener ouvinte = new TcpListener(IPAddress.Loopback, Porta);
+        ouvinte.Start();
+        while (Rodando)
+        {
+            try
+            {
+                TcpClient cliente = ouvinte.AcceptTcpClient();
+                ThreadPool.QueueUserWorkItem(delegate(object o) { Atender((TcpClient)o); }, cliente);
+            }
+            catch (Exception) { if (!Rodando) break; }
+        }
+        try { ouvinte.Stop(); } catch { }
+    }
+
+    static void Atender(TcpClient cliente)
+    {
+        try
+        {
+            using (cliente)
+            using (NetworkStream fluxo = cliente.GetStream())
+            {
+                cliente.ReceiveTimeout = 15000;
+                cliente.SendTimeout = 15000;
+
+                // Cabeçalho: lê byte a byte até a linha em branco. São poucos
+                // bytes e evita ter que adivinhar onde o corpo começa.
+                MemoryStream cabecalho = new MemoryStream();
+                int b, casados = 0;
+                while (casados < 4 && (b = fluxo.ReadByte()) >= 0)
+                {
+                    cabecalho.WriteByte((byte)b);
+                    if ((casados == 0 || casados == 2) && b == '\r') casados++;
+                    else if ((casados == 1 || casados == 3) && b == '\n') casados++;
+                    else casados = (b == '\r') ? 1 : 0;
+                    if (cabecalho.Length > 32768) return;
+                }
+                if (cabecalho.Length == 0) return;
+
+                string texto = Utf8.GetString(cabecalho.ToArray());
+                string[] linhas = texto.Split(new string[] { "\r\n" }, StringSplitOptions.None);
+                string[] pedido = linhas[0].Split(' ');
+                if (pedido.Length < 2) return;
+
+                string metodo = pedido[0];
+                string caminho = pedido[1];
+                int corte = caminho.IndexOf('?');
+                if (corte >= 0) caminho = caminho.Substring(0, corte);
+
+                int tamanho = 0;
+                bool marcado = false;
+                for (int i = 1; i < linhas.Length; i++)
+                {
+                    string l = linhas[i];
+                    if (l.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase))
+                        int.TryParse(l.Substring(15).Trim(), out tamanho);
+                    // Guarda contra outra aba/site falando com a porta local: um
+                    // site qualquer não consegue mandar cabeçalho personalizado
+                    // sem preflight, e preflight aqui não é respondido.
+                    if (l.StartsWith("X-Painel:", StringComparison.OrdinalIgnoreCase)) marcado = true;
+                }
+
+                string corpo = "";
+                if (tamanho > 0)
+                {
+                    byte[] buf = new byte[tamanho];
+                    int lidos = 0;
+                    while (lidos < tamanho)
+                    {
+                        int n = fluxo.Read(buf, lidos, tamanho - lidos);
+                        if (n <= 0) break;
+                        lidos += n;
+                    }
+                    corpo = Utf8.GetString(buf, 0, lidos);
+                }
+
+                Rotear(fluxo, metodo, caminho, corpo, marcado);
+            }
+        }
+        catch (Exception) { /* conexão fechada pelo navegador: normal */ }
+    }
+
+    static void Rotear(Stream saida, string metodo, string caminho, string corpo, bool marcado)
+    {
+        if (caminho == "/api/quem")
+        {
+            /* `grava` é a resposta para a pergunta que decide a tela inteira:
+               esta pessoa consegue escrever no log dela? Com a pasta
+               compartilhada como "Pode exibir", não consegue — e o painel
+               já abre em modo de leitura, sem oferecer botão que falharia. */
+            Responder(saida, 200, "application/json",
+                "{\"usuario\":\"" + Esc(Usuario) + "\",\"porta\":" + Porta +
+                ",\"grava\":" + (PodeGravar() ? "true" : "false") + "}");
+            return;
+        }
+
+        if (caminho == "/api/versao")
+        {
+            Responder(saida, 200, "application/json", Versao());
+            return;
+        }
+
+        if (caminho == "/api/logs")
+        {
+            Responder(saida, 200, "text/plain", Logs());
+            return;
+        }
+
+        if (caminho == "/api/ops")
+        {
+            if (metodo != "POST" || !marcado) { Responder(saida, 403, "text/plain", "só pelo dashboard"); return; }
+            int gravadas = Anexar(corpo);
+            Responder(saida, 200, "application/json", "{\"gravadas\":" + gravadas + ",\"versao\":" + Aspas(Carimbo()) + "}");
+            return;
+        }
+
+        // Arquivos. "/" é o dashboard; o resto vem de _app/, e só de lá.
+        string relativo = (caminho == "/" || caminho == "") ? "index.html" : caminho.TrimStart('/');
+        relativo = Uri.UnescapeDataString(relativo).Replace('/', Path.DirectorySeparatorChar);
+        string alvo = Path.GetFullPath(Path.Combine(PastaApp, relativo));
+        if (!alvo.StartsWith(PastaApp, StringComparison.OrdinalIgnoreCase) || !File.Exists(alvo))
+        {
+            Responder(saida, 404, "text/plain", "não encontrado: " + caminho);
+            return;
+        }
+        /* O favicon é binário. Lido como texto UTF-8, cada byte que não forma
+           caractere válido vira '?' na volta e o navegador recebe um .ico
+           picado — a aba fica sem ícone e ninguém descobre por quê. Por isso
+           binário vai como bytes, sem passar por string; o resto, que é tudo
+           texto, continua como era. */
+        if (Binario(alvo)) Enviar(saida, 200, Tipo(alvo), File.ReadAllBytes(alvo));
+        else Responder(saida, 200, Tipo(alvo), File.ReadAllText(alvo, Encoding.UTF8));
+    }
+
+    /* ---------------------------------------------------------------------
+       Os dados. Três operações e nenhuma interpretação: anexar linha, devolver
+       todas as linhas, dizer se mudou alguma coisa.
+       ------------------------------------------------------------------ */
+
+    // Carimbo do estado da pasta: nome + tamanho + data de cada log. Se nada
+    // mudou, o carimbo é o mesmo, e o dashboard nem pede os dados de novo.
+
+    /* Consegue escrever no log desta pessoa? A resposta sai de TENTAR abrir
+       o arquivo para anexar — não de ler atributo nem de conferir ACL.
+       "Pode exibir" no OneDrive, arquivo marcado como somente-leitura e
+       pasta sem permissão dão erros diferentes; abrir para escrita cobre os
+       três de uma vez. Não escreve byte nenhum: abre e fecha. */
+    static bool PodeGravar()
+    {
+        try
+        {
+            using (FileStream f = new FileStream(MeuArquivo, FileMode.Append,
+                                                 FileAccess.Write, FileShare.ReadWrite))
+            {
+                return true;
+            }
+        }
+        catch (Exception) { return false; }
+    }
+
+    static string Carimbo()
+    {
+        StringBuilder sb = new StringBuilder();
+        try
+        {
+            string[] arquivos = Directory.GetFiles(PastaDados, PREFIXO + "*.jsonl");
+            Array.Sort(arquivos, StringComparer.OrdinalIgnoreCase);
+            foreach (string f in arquivos)
+            {
+                FileInfo fi = new FileInfo(f);
+                sb.Append(fi.Name).Append(':').Append(fi.Length).Append(':')
+                  .Append(fi.LastWriteTimeUtc.Ticks).Append('|');
+            }
+        }
+        catch (Exception) { sb.Append("erro"); }
+        return sb.ToString();
+    }
+
+    static string Versao()
+    {
+        StringBuilder autores = new StringBuilder();
+        try
+        {
+            string[] arquivos = Directory.GetFiles(PastaDados, PREFIXO + "*.jsonl");
+            Array.Sort(arquivos, StringComparer.OrdinalIgnoreCase);
+            foreach (string f in arquivos)
+            {
+                FileInfo fi = new FileInfo(f);
+                string nome = fi.Name;
+                // recorta pelo tamanho real do prefixo: trocar PREFIXO
+                // sem mexer aqui cortaria o nome do autor no lugar errado
+                nome = nome.Substring(PREFIXO.Length, nome.Length - PREFIXO.Length - 6);
+                int arroba = nome.IndexOf('@');
+                string autor = arroba > 0 ? nome.Substring(0, arroba) : nome;
+                // "origem" é a carga inicial do painel, não uma pessoa: não entra
+                // na lista de quem está mexendo.
+                if (autor == "origem") continue;
+                if (autores.Length > 0) autores.Append(',');
+                autores.Append("{\"autor\":").Append(Aspas(autor))
+                       .Append(",\"em\":").Append(Aspas(fi.LastWriteTimeUtc.ToString("o", CultureInfo.InvariantCulture)))
+                       .Append(",\"bytes\":").Append(fi.Length).Append('}');
+            }
+        }
+        catch (Exception) { }
+        return "{\"versao\":" + Aspas(Carimbo()) + ",\"eu\":" + Aspas(Usuario) +
+               ",\"autores\":[" + autores + "]}";
+    }
+
+    static string Logs()
+    {
+        StringBuilder sb = new StringBuilder();
+        try
+        {
+            string[] arquivos = Directory.GetFiles(PastaDados, PREFIXO + "*.jsonl");
+            Array.Sort(arquivos, StringComparer.OrdinalIgnoreCase);
+            foreach (string f in arquivos)
+            {
+                // Aberto para leitura mesmo com outro processo escrevendo: o
+                // OneDrive mexe nesses arquivos o tempo todo.
+                using (FileStream fs = new FileStream(f, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (StreamReader sr = new StreamReader(fs, Encoding.UTF8))
+                {
+                    string linha;
+                    while ((linha = sr.ReadLine()) != null)
+                    {
+                        linha = linha.Trim();
+                        // Linha cortada pela metade (sincronização no meio da
+                        // gravação) é descartada aqui: o navegador nunca recebe
+                        // JSON quebrado, e a linha reaparece inteira depois.
+                        if (linha.Length > 1 && linha[0] == '{' && linha[linha.Length - 1] == '}')
+                            sb.Append(linha).Append('\n');
+                    }
+                }
+            }
+        }
+        catch (Exception) { }
+        return sb.ToString();
+    }
+
+    // Recebe uma operação por linha, já em JSON, e anexa ao MEU arquivo com
+    // autor, sequência e horário. Só este processo escreve neste arquivo.
+    static int Anexar(string corpo)
+    {
+        if (string.IsNullOrEmpty(corpo)) return 0;
+        string[] linhas = corpo.Replace("\r\n", "\n").Split('\n');
+        StringBuilder sb = new StringBuilder();
+        int n = 0;
+        lock (Trava)
+        {
+            foreach (string bruta in linhas)
+            {
+                string linha = bruta.Trim();
+                if (linha.Length < 2 || linha[0] != '{') continue;
+                Seq++;
+                sb.Append("{\"autor\":").Append(Aspas(Usuario))
+                  .Append(",\"seq\":").Append(Seq)
+                  .Append(",\"em\":").Append(Aspas(DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture)))
+                  .Append(",\"op\":").Append(linha).Append("}\n");
+                n++;
+            }
+            if (n > 0)
+            {
+                // Uma gravação só, em modo append: o arquivo nunca fica sem as
+                // linhas anteriores, nem que o processo morra no meio.
+                using (FileStream fs = new FileStream(MeuArquivo, FileMode.Append, FileAccess.Write, FileShare.Read))
+                {
+                    byte[] bytes = Utf8.GetBytes(sb.ToString());
+                    fs.Write(bytes, 0, bytes.Length);
+                    fs.Flush(true);
+                }
+            }
+        }
+        return n;
+    }
+
+    static int ContarLinhas(string arquivo)
+    {
+        int n = 0;
+        try
+        {
+            if (!File.Exists(arquivo)) return 0;
+            using (FileStream fs = new FileStream(arquivo, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (StreamReader sr = new StreamReader(fs, Encoding.UTF8))
+                while (sr.ReadLine() != null) n++;
+        }
+        catch (Exception) { }
+        return n;
+    }
+
+    /* ------------------------------------------------------------------ */
+
+    static void Responder(Stream saida, int codigo, string tipo, string corpo)
+    {
+        // O charset entra aqui, e não no Enviar, porque só faz sentido em
+        // texto: declarar charset num .ico é mentira que alguns navegadores
+        // levam a sério.
+        Enviar(saida, codigo, tipo + "; charset=utf-8", Utf8.GetBytes(corpo));
+    }
+
+    static void Enviar(Stream saida, int codigo, string tipo, byte[] bytes)
+    {
+        StringBuilder cab = new StringBuilder();
+        cab.Append("HTTP/1.1 ").Append(codigo).Append(codigo == 200 ? " OK" : " ERRO").Append("\r\n");
+        cab.Append("Content-Type: ").Append(tipo).Append("\r\n");
+        cab.Append("Content-Length: ").Append(bytes.Length).Append("\r\n");
+        // Nada de cache: o dashboard pergunta pelos dados o tempo todo.
+        cab.Append("Cache-Control: no-store\r\n");
+        cab.Append("Connection: close\r\n\r\n");
+        byte[] cabBytes = Encoding.ASCII.GetBytes(cab.ToString());
+        saida.Write(cabBytes, 0, cabBytes.Length);
+        saida.Write(bytes, 0, bytes.Length);
+        saida.Flush();
+    }
+
+    static string Tipo(string arquivo)
+    {
+        string ext = Path.GetExtension(arquivo).ToLowerInvariant();
+        if (ext == ".html") return "text/html";
+        if (ext == ".js") return "application/javascript";
+        if (ext == ".css") return "text/css";
+        if (ext == ".json") return "application/json";
+        if (ext == ".svg") return "image/svg+xml";
+        if (ext == ".ico") return "image/x-icon";
+        if (ext == ".png") return "image/png";
+        return "text/plain";
+    }
+
+    static bool Binario(string arquivo)
+    {
+        string ext = Path.GetExtension(arquivo).ToLowerInvariant();
+        return ext == ".ico" || ext == ".png";
+    }
+
+    static string Aspas(string s) { return "\"" + Esc(s) + "\""; }
+
+    static string Esc(string s)
+    {
+        if (s == null) return "";
+        StringBuilder sb = new StringBuilder();
+        foreach (char c in s)
+        {
+            if (c == '"' || c == '\\') sb.Append('\\').Append(c);
+            else if (c == '\n') sb.Append("\\n");
+            else if (c == '\r') sb.Append("\\r");
+            else if (c == '\t') sb.Append("\\t");
+            else if (c < 32) sb.Append("\\u").Append(((int)c).ToString("x4"));
+            else sb.Append(c);
+        }
+        return sb.ToString();
+    }
+
+    // Nome de usuário vira nome de arquivo: sem espaço, sem acento estranho,
+    // sem barra. "Vitor Cunha" -> "vitor-cunha".
+    static string Limpar(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return "usuario";
+        StringBuilder sb = new StringBuilder();
+        foreach (char c in s.ToLowerInvariant())
+        {
+            if (char.IsLetterOrDigit(c) && c < 128) sb.Append(c);
+            else if (c == ' ' || c == '.' || c == '_' || c == '-') sb.Append('-');
+        }
+        string limpo = sb.ToString().Trim('-');
+        return limpo.Length == 0 ? "usuario" : limpo;
+    }
+
+    /* ---------------------------------------------------------------------
+       O ícone da bandeja.
+
+       O .ico da marca vai junto no executável (csc /resource:plaorc.ico), e
+       aqui pedimos o QUADRO do tamanho certo — 16x16 na bandeja. Sem passar o
+       tamanho, o .NET pega o maior quadro (256) e encolhe na marra, e o
+       resultado fica borrado ao lado dos outros ícones da bandeja.
+
+       Se por qualquer motivo o recurso não estiver lá, cai no ícone genérico
+       do Windows: um ícone feio é melhor que um programa que não abre.
+       ------------------------------------------------------------------ */
+    static Icon IconeDaMarca(Size tamanho)
+    {
+        try
+        {
+            using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("plaorc.ico"))
+                if (s != null) return new Icon(s, tamanho);
+        }
+        catch (Exception) { }
+        return SystemIcons.Application;
+    }
+}

@@ -1,0 +1,154 @@
+{{NOME}} — abrindo pela primeira vez
+================================================================
+
+Este arquivo é para QUEM VAI USAR, na primeira vez. Leva uns
+3 minutos, e só precisa ser feito uma vez por computador.
+
+Depois disso, abrir a ferramenta é dar dois cliques.
+
+
+O que você vai precisar
+----------------------------------------------------------------
+- Um computador com Windows (não funciona no celular, no tablet
+  nem no Mac).
+- O OneDrive já conectado nesse Windows, com a sua conta — a
+  mesma que recebeu o convite de compartilhamento.
+- O link da pasta compartilhada, que {{ORGANIZACAO}} lhe enviou.
+
+Você NÃO vai precisar instalar nada, nem ser administrador da
+máquina, nem criar senha.
+
+
+PASSO 1 — Abra o link e ADICIONE o atalho
+----------------------------------------------------------------
+Clique no link que você recebeu. Ele abre a pasta no navegador.
+
+Agora, no alto da tela, clique em:
+
+    "Adicionar atalho aos Meus arquivos"
+
+(em algumas contas o botão aparece como "Adicionar ao meu
+OneDrive" — é o mesmo botão.)
+
+>>> NÃO clique em "Baixar". <<<
+
+Este é o passo que dá errado com mais frequência, e é o mais
+importante de todos. "Baixar" faz uma cópia solta no seu
+computador: ela até abre, mas fica só sua. Ninguém vê o que você
+fizer nela, e você não vê o que os outros fizerem. "Adicionar
+atalho" não copia nada — ele liga o seu Explorer à pasta de
+verdade, a mesma que todo mundo usa.
+
+
+PASSO 2 — Abra a pasta pelo Explorer do Windows
+----------------------------------------------------------------
+Feche o navegador. Abra o Explorer (a pastinha amarela da barra
+de tarefas, ou tecla Windows + E).
+
+Do lado esquerdo, clique em OneDrive. A pasta vai estar lá
+dentro, com o nome que você viu no site.
+
+>>> A ferramenta NÃO funciona pelo site do OneDrive. <<<
+
+Pelo navegador você consegue ver e baixar arquivos, mas o
+programa precisa rodar no seu Windows, lendo a pasta pelo
+Explorer. Se você clicar no programa dentro do site, no máximo
+ele baixa — e cai no problema do PASSO 1.
+
+
+PASSO 3 — Peça para o Windows guardar a pasta
+----------------------------------------------------------------
+Clique na pasta com o BOTÃO DIREITO e escolha:
+
+    "Sempre manter neste dispositivo"
+
+Espere o ícone ao lado dos arquivos virar um círculo verde com
+um tique. Isso baixa a pasta de verdade para a sua máquina — sem
+isso, a primeira abertura fica lenta e pode falhar no meio.
+
+
+PASSO 4 — Dois cliques em {{EXE}}
+----------------------------------------------------------------
+Dentro da pasta, dê dois cliques em:
+
+    {{EXE}}
+
+O navegador abre sozinho, já com a ferramenta funcionando.
+
+Na PRIMEIRA vez, o Windows pode mostrar uma tela azul dizendo
+"O Windows protegeu o seu PC". Isso é normal: o programa é
+pequeno e não tem assinatura de fabricante. Clique em:
+
+    "Mais informações"  >  "Executar assim mesmo"
+
+Acontece uma vez só, nesta máquina. Se preferir, confirme antes
+com quem lhe enviou a pasta.
+
+Se aparecer um aviso de firewall pedindo para liberar a rede,
+pode CANCELAR sem medo. O programa conversa só com o seu próprio
+computador; não precisa de liberação nenhuma.
+
+
+PASSO 5 — Confira que deu certo
+----------------------------------------------------------------
+Três sinais de que está tudo no lugar:
+
+1. A ferramenta abriu no navegador, com o nome {{NOME}} na aba.
+2. Ao lado do relógio, no canto da barra de tarefas, apareceu o
+   ícone dela. (Clique na setinha ^ para ver os ícones
+   escondidos.) É o programa rodando — é ele que faz a tela
+   funcionar.
+3. Você consegue alterar alguma coisa e ela continua lá quando
+   você recarrega a página.
+
+Se a tela abriu avisando "somente leitura", está funcionando: a
+pasta foi compartilhada com você no modo "Pode exibir". Você
+acompanha tudo, mas não altera. Peça permissão de edição a quem
+compartilhou.
+
+Fechar o navegador não desliga o programa — ele continua ao lado
+do relógio, e é assim que deve ser. Para desligar de vez: botão
+direito naquele ícone > Sair.
+
+
+SE NÃO ABRIR
+----------------------------------------------------------------
+Não fique tentando. Dentro da pasta existe uma pasta chamada
+_suporte. Entre nela e dê dois cliques em:
+
+    Diagnostico.cmd
+
+Ele confere esta máquina, tenta abrir a ferramenta e explica o
+que encontrou — em português, na tela. No fim, ele salva um
+arquivo na sua Área de Trabalho chamado
+"diagnostico-<nome-da-sua-máquina>.txt".
+
+Mande esse arquivo para quem lhe entregou a pasta. Com ele, a
+causa aparece na hora; sem ele, a conversa fica no chute.
+
+Se apareceu alguma JANELA DE ERRO na tela, anote (ou fotografe)
+o texto dela e mande junto. É a informação mais valiosa que
+existe nesse momento.
+
+
+O QUE NÃO FAZER — os cinco erros de sempre
+----------------------------------------------------------------
+1. Clicar em "Baixar" em vez de "Adicionar atalho".
+   Vira uma cópia só sua, invisível para o time.
+
+2. Abrir o programa de dentro de um .zip.
+   Se alguém lhe mandou um .zip, clique nele com o botão direito
+   > "Extrair tudo" ANTES de abrir qualquer coisa. Clicar duas
+   vezes no .zip abre uma janela que parece uma pasta, mas não é.
+
+3. Copiar só o {{EXE}} para outro lugar.
+   Ele precisa das pastas _app e dados que estão ao lado dele.
+   Para levar a ferramenta, leve a PASTA INTEIRA.
+
+4. Renomear ou apagar as pastas _app e dados.
+   _app é a ferramenta. dados é o trabalho de todo mundo.
+
+5. Abrir duas cópias da mesma ferramenta, de pastas diferentes.
+   As duas funcionam, e cada uma tem os seus próprios dados —
+   nenhuma vê o trabalho da outra. Use sempre a mesma pasta
+   compartilhada.

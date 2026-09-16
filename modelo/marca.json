@@ -1,0 +1,8 @@
+{
+  "nome": "Aplicação",
+  "organizacao": "",
+  "icone": "marca.ico",
+  "prefixo": "dados",
+  "porta": 8850,
+  "faixaPortas": 40
+}

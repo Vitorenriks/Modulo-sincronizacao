@@ -1,0 +1,55 @@
+<!doctype html>
+<!--
+   index.html - a aplicacao de exemplo que vem em todo projeto novo.
+
+   E um quadro de tarefas de proposito: e a menor coisa util que exercita o
+   protocolo inteiro (criar, alterar, apagar, ver o que o colega fez, modo
+   somente-leitura). Apague tudo daqui e escreva a sua aplicacao - o servidor
+   nao sabe nem se importa com o que tem nesta pasta.
+
+   Nada de CDN, nada de npm: a pasta pode estar num computador sem internet,
+   e uma dependencia externa que nao carrega e uma tela branca sem explicacao.
+-->
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Carregando…</title>
+  <!-- O icone vem do servidor, nao desta pasta: trocar a marca e trocar o
+       marca.ico ao lado do .exe, sem abrir o _app/. -->
+  <link rel="icon" href="/marca.ico">
+  <link rel="stylesheet" href="tela/estilo.css">
+</head>
+<body>
+
+<header class="topo">
+  <div class="marca">
+    <img id="logo" alt="" hidden>
+    <div>
+      <h1 id="titulo">…</h1>
+      <p id="subtitulo" class="fraco"></p>
+    </div>
+  </div>
+  <div class="estado">
+    <span id="quem" class="etiqueta"></span>
+    <span id="pessoas" class="fraco"></span>
+  </div>
+</header>
+
+<div id="aviso" class="aviso" hidden></div>
+
+<main id="quadro" class="quadro"></main>
+
+<footer class="rodape fraco">
+  <span id="contagem"></span>
+  <span>Os dados ficam em <code>dados\</code>, ao lado do programa. Nada sai desta pasta.</span>
+</footer>
+
+<!-- A ordem e a das camadas, de dentro para fora. principal.js vem por
+     ultimo porque e o unico que precisa dos tres carregados. -->
+<script src="dominio/regras.js"></script>
+<script src="aplicacao/log.js"></script>
+<script src="tela/quadro.js"></script>
+<script src="principal.js"></script>
+</body>
+</html>
