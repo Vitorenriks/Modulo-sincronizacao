@@ -1,6 +1,6 @@
 # Núcleo
 
-**Um servidor em C# que transforma uma pasta compartilhada em aplicação de equipe.**
+**Um servidor web local em C# que transforma uma pasta compartilhada em uma aplicação de equipe.**
 
 Copie a pasta para o OneDrive, SharePoint ou unidade de rede. Compartilhe com o
 time. Cada pessoa dá dois cliques no executável que está lá dentro, e a
